@@ -29,3 +29,6 @@ class Querying:
         tf_retrieval = "SELECT TF_VALUE FROM DOC%d WHERE WORD='%s'" % (doc_num, word)
         cursor.execute(tf_retrieval)
         return cursor[0][0] * idf
+
+    def rankDocs(self):
+        
