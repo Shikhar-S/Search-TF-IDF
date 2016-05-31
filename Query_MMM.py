@@ -9,6 +9,13 @@ class Query_MMM(Querying):
         self.C_or2=1-self.C_or1
         self.C_and1=cand1
         self.C_and2=1-self.C_and1
+        self.maxIDF=0;
+
+    def getMaxIDF(self):
+        cursor=self.db.cursor()
+        cursor.execute("SELECT MAX(IDF_VALUE) FROM IDF")
+        temp_row=cursor.fetchone()
+        self.maxIDF=temp_row[0]
 
     def getSimilarityAND(self, query, doc_num):
         cursor=self.db.cursor()
@@ -21,6 +28,11 @@ class Query_MMM(Querying):
                 max_w=max(max_w,row[0])
         if min_w==1 and max_w==0:
             return  0
+        cursor.execute(("SELECT IDF_VALUE FROM IDF WHERE WORD='%s'" % word))
+        temp_row = cursor.fetchone()
+        idf_value = temp_row[0]
+        min_w = idf_value * min_w / self.maxIDF
+        max_w = max_w * idf_value / self.maxIDF
         return self.C_and1*min_w+self.C_and2*max_w
 
     def getSimilarityOR(self, query, doc_num):
@@ -34,11 +46,17 @@ class Query_MMM(Querying):
                 max_w = max(max_w, row[0])
         if min_w == 1 and max_w == 0:
             return 0
+        cursor.execute(("SELECT IDF_VALUE FROM IDF WHERE WORD='%s'" % word))
+        temp_row=cursor.fetchone()
+        idf_value=temp_row[0]
+        min_w=idf_value*min_w/self.maxIDF
+        max_w=max_w*idf_value/self.maxIDF
         return self.C_or1 * max_w + self.C_or2 * min_w
 
 
     def processQuery(self):
         self.getN()
+        self.getMaxIDF()
         query=[porter2.stem(word) for word in self.query.lower().split(' ')]
         score = {}
         score = defaultdict(lambda: 0, score)
@@ -61,5 +79,4 @@ class Query_MMM(Querying):
             result.append((doc, value))
         for i in xrange(len(result) - 1, -1, -1):
             print result[i]
-
 
