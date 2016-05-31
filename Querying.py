@@ -5,7 +5,7 @@ import math
 import porter2
 import os
 class Querying:
-    def __init__(self, path_to_folder, n=0, usID='shikhar', pswd='password', dbase='indexing_project', hst='localhost'):
+    def __init__(self, path_to_folder=os.getcwd(), n=0, usID='shikhar', pswd='password', dbase='indexing_project', hst='localhost'):
         self.path=path_to_folder
         self.query = ''
         self.userID = usID
@@ -44,9 +44,7 @@ class Querying:
         self.N=len([name for name in os.listdir(self.path) if os.path.isfile(os.path.join(self.path, name))])
 
     def processQuery(self):
-        self.getQuery()
         self.getN()
-        print self.N
         query=(self.query).lower().split(' ')
         cur=self.db.cursor()
         score={}
