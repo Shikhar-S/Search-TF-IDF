@@ -2,6 +2,8 @@ __author__='Shikhar'
 from Querying import Querying
 import porter2
 from collections import defaultdict
+import math
+from Index_individual import Indexing
 class Query_MMM(Querying):
     '''
     Implements Maxed min and max formula for ranking documents based on search query
@@ -36,24 +38,31 @@ class Query_MMM(Querying):
         :return: gives a tuple containing max and min weights out of all given query words in given doc
         '''
         cursor = self.db.cursor()
-        min_w = 1
+        cursor.execute("SELECT LENGTH FROM FILES WHERE FILE_ID=%d" % doc_num)
+        row=cursor.fetchone()
+        len_doc=row[0]
+        min_w = math.log(self.N)*len_doc
         max_w = 0
-        len_doc = cursor.execute("SELECT LENGTH FROM FILES WHERE FILE_ID=%d" % doc_num)
+        idf_value=1
         for word in query:
             cursor.execute(("SELECT TF_VALUE FROM DOC%d WHERE WORD='%s'" % (doc_num, word)))
-            for row in cursor:
-                min_w = min(min_w, row[0])
-                max_w = max(max_w, row[0])
-        if min_w == 1 and max_w == 0:
+            if cursor.rowcount>0:
+                row=cursor.fetchone()
+                min_tf =  row[0]
+                max_tf =  row[0]
+                cursor.execute(("SELECT IDF_VALUE FROM IDF WHERE WORD='%s'" % word))
+                if cursor.rowcount>0:
+                    temp_row = cursor.fetchone()
+                    idf_value = temp_row[0]
+                min_w = min(idf_value * min_tf / self.maxIDF,min_w)
+                max_w = max(max_tf * idf_value / self.maxIDF,max_w)
+        if min_w == math.log(self.N)*len_doc and max_w == 0:
             return (0,0)
         else:
             min_w *= len_doc
             max_w *= len_doc
-        cursor.execute(("SELECT IDF_VALUE FROM IDF WHERE WORD='%s'" % word))
-        temp_row = cursor.fetchone()
-        idf_value = temp_row[0]
-        min_w = idf_value * min_w / self.maxIDF
-        max_w = max_w * idf_value / self.maxIDF
+
+
         return (min_w,max_w)
 
     def getSimilarityAND(self, query, doc_num):
@@ -111,4 +120,3 @@ class Query_MMM(Querying):
             result.append((doc, value))
         for i in xrange(len(result) - 1, -1, -1):
             print result[i]
-
