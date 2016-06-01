@@ -12,7 +12,17 @@ warnings.filterwarnings('ignore', 'Unknown table')
 
 
 class Indexing:
+    '''
+    Indexes docs
+    '''
     def __init__(self, stpwrdfile, usID='shikhar', pswd='password', dbase='indexing_project', hst='localhost'):
+        '''
+        :param stpwrdfile: File path containing stopwords to be filtered
+        :param usID: User ID for database connection
+        :param pswd: password for database connection
+        :param dbase: Name of the datbase
+        :param hst: database hosted at @host
+        '''
         self.userID = usID
         self.password = pswd
         self.database = dbase
@@ -30,9 +40,12 @@ class Indexing:
         self.db.close()
 
     def setUpFileInfo(self):
+        '''
+        :return: Creates a database schema on disk to store File info, namely id, path, length
+        '''
         cursor = self.db.cursor()
         cursor.execute('DROP TABLE IF EXISTS FILES')
-        cursor.execute('CREATE TABLE FILES(FILE_ID INT NOT NULL,LINK VARCHAR(150))')
+        cursor.execute('CREATE TABLE FILES(FILE_ID INT NOT NULL,LINK VARCHAR(150),LENGTH INT)')
         try:
             self.db.commit()
         except Exception, e:
@@ -40,6 +53,9 @@ class Indexing:
             print e
 
     def setUpIDF(self):
+        '''
+        :return: Creates IDF table on disk to store word and IDF_VALUE
+        '''
         maxlenWord = 20
         try:
             cursor = self.db.cursor()
@@ -54,9 +70,11 @@ class Indexing:
             print 'Error creating idf database'
 
     def setUpTF(self, doc_num):
-        # n is the number of files to be indexed
-        # set up TF and IDF databases
-        maxlenWord = 20
+        '''
+        :param doc_num: doc for which TF table has to be made.
+        :return: Creates TF table on disk for given doc to store word and TFF_VALUE. Mame of table is DOCi for i=doc_num
+        '''
+        maxlenWord = 20 #maximum possible length of word
         try:
             cursor = self.db.cursor()
             cursor.execute('DROP TABLE IF EXISTS DOC' + str(doc_num))
@@ -70,13 +88,18 @@ class Indexing:
             print 'Error creating tf database ', doc_num
 
     def getStopwords(self):
+        '''
+        :return:generates a Set of stopwords from the given stopword file
+        '''
         with open(self.stopWordFile) as F_Stop:
             self.stopWordSet = set(F_Stop.read().split(' '))
 
     def IDF_insert(self):
-        cursor = self.db.cursor()
-        # for every word get freq of no of tables it is part of store it in idf table then
+        '''
+        :return: finds IDF value for all words and insert them
+        '''
         for i in xrange(1, self.N + 1):
+            print 'Indexing IDF value for file %d' % i
             insertion_cursor = self.db.cursor()
             traversal_cursor = self.db.cursor()
             temp_cursor=self.db.cursor()
@@ -102,14 +125,20 @@ class Indexing:
 
 
     def TF_insert(self, fid, word, count_total, word_freq):
-        # calculates TF and inserts into table TF
+        '''
+        :param fid: doc id for which TF value have to be caluclated
+        :param word: word whose TF value is calc
+        :param count_total: total number of words in given doc
+        :param word_freq: freq of word in given doc
+        :return: calculates and stores TF value in DOCi table
+        '''
         cursor = self.db.cursor()
         value = float(word_freq) / (count_total)
         try:
             cursor.execute(("SELECT * FROM DOC%d WHERE WORD='%s'" % (fid, word)))
             present = cursor.rowcount > 0
             if not present:
-                cursor.execute(("INSERT INTO DOC%d(WORD,TF_VALUE) VALUES('%s',%f)" % (fid, word, value)))
+                cursor.execute(("INSERT INTO DOC%d(WORD,TF_VALUE) VALUES('%s', %f)" % (fid, word, value)))
             else:
                 query_update = 'UPDATE TF SET DOC' + str(fid) + ('=%f ' % value) + ("WHERE WORD='%s'" % word)
                 cursor.execute(query_update)
@@ -118,6 +147,12 @@ class Indexing:
             # print 'Error entering value to data base for %s' % word
 
     def addToDatabase(self, FilePath, listOfWords, fid):
+        '''
+        :param FilePath:path of file to be indexed
+        :param listOfWords: all the words in given file
+        :param fid: id of given doc/file
+        :return: processes each word by calc its freq and calling TF_insert function
+        '''
         print 'Indexing file %d' % fid
         with open(FilePath,'r') as F:
             hashtable_words = {}
@@ -128,16 +163,19 @@ class Indexing:
             self.setUpTF(fid)
             for word in hashtable_words:
                 self.TF_insert(fid, word, cnt, hashtable_words[word])
-        try:
-            self.db.commit()
-        except Exception, e:
-            self.db.rollback()
-            print e
 
     def removeStopWords(self, wordlist):
+        '''
+        :param wordlist: list of words in doc
+        :return: filters stopwords
+        '''
         return [x for x in wordlist if x not in self.stopWordSet]
 
     def fetchStemmedWords(self, path):
+        '''
+        :param path:path of doc
+        :return: lowers and generates a filtered stemmed word list
+        '''
         with open(path, 'r') as F:
             text = F.read().lower()
             text = re.sub(r'[^a-z0-9 ]', ' ', text)
@@ -148,15 +186,31 @@ class Indexing:
         return listOfWords
 
     def parseFile(self, path_to_file, fid):
+        '''
+        :param path_to_file:path of file to be indexed
+        :param fid: id of file
+        :return: processes the file by calling addToDatabase and insertFile functions
+        '''
         listOfWords = self.fetchStemmedWords(path_to_file)
+        self.insertFile(fid,path_to_file,len(listOfWords))
         self.addToDatabase(path_to_file, listOfWords, fid)
 
-    def insertFile(self, id, f):
+    def insertFile(self, id, f,count):
+        '''
+        :param id: id of doc
+        :param f: path of doc
+        :param count: number of words in doc
+        :return: inserts these values to FILES table
+        '''
         cur = self.db.cursor()
-        cur.execute(("INSERT INTO FILES(FILE_ID,LINK) VALUES(%d,'%s')" % (id, f)))
+        cur.execute(("INSERT INTO FILES(FILE_ID,LINK,LENGTH) VALUES(%d,'%s',%d)" % (id, f, count)))
 
 
     def createIndex(self, pathtofolder):
+        '''
+        :param pathtofolder:Folder containing all files to be indexed
+        :return: indexes all docs in given folder
+        '''
         filesinside = []
         self.setUpFileInfo()
         ID = 0
@@ -165,18 +219,18 @@ class Indexing:
                 f = os.path.join(pathtofolder, f)
                 filesinside.append(f)
                 ID += 1
-                self.insertFile(ID, f)
-        try:
-            self.db.commit()
-        except Exception, e:
-            self.db.rollback()
-            print e
+
 
         self.N = ID
         self.setUpIDF()
         self.getStopwords()
         for i in xrange(1, self.N + 1):
             self.parseFile(filesinside[i - 1], i)
+        try:
+            self.db.commit()
+        except Exception, e:
+            self.db.rollback()
+            print e
         self.IDF_insert()
 
 #######################################
