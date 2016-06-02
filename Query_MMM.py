@@ -8,7 +8,7 @@ class Query_MMM(Querying):
     '''
     Implements Maxed min and max formula for ranking documents based on search query
     '''
-    def __init__(self,pathtofolder,cor1=0.25,cand1=0.6):
+    def __init__(self,pathtofolder,cor1=0.6,cand1=0.6):
         '''
         :param pathtofolder:Folder containing Files to be indexed (to be passed to base class)
         :param cor1: OR coefficient for MMM formula
@@ -23,7 +23,6 @@ class Query_MMM(Querying):
 
     def getMaxIDF(self):
         '''
-
         :return: gives maximum IDF value which is the denominator in MMM formula
         '''
         cursor=self.db.cursor()
@@ -41,28 +40,21 @@ class Query_MMM(Querying):
         cursor.execute("SELECT LENGTH FROM FILES WHERE FILE_ID=%d" % doc_num)
         row=cursor.fetchone()
         len_doc=row[0]
-        min_w = math.log(self.N)*len_doc
+        min_w = math.log(self.N)*len_doc #largest value of weight=freq
         max_w = 0
         idf_value=1
         for word in query:
             cursor.execute(("SELECT TF_VALUE FROM DOC%d WHERE WORD='%s'" % (doc_num, word)))
             if cursor.rowcount>0:
                 row=cursor.fetchone()
-                min_tf =  row[0]
-                max_tf =  row[0]
+                t_freq =  row[0]*len_doc
                 cursor.execute(("SELECT IDF_VALUE FROM IDF WHERE WORD='%s'" % word))
-                if cursor.rowcount>0:
-                    temp_row = cursor.fetchone()
-                    idf_value = temp_row[0]
-                min_w = min(idf_value * min_tf / self.maxIDF,min_w)
-                max_w = max(max_tf * idf_value / self.maxIDF,max_w)
-        if min_w == math.log(self.N)*len_doc and max_w == 0:
-            return (0,0)
-        else:
-            min_w *= len_doc
-            max_w *= len_doc
-
-
+                temp_row = cursor.fetchone()
+                idf_value = temp_row[0]
+                min_w = min(idf_value * t_freq / self.maxIDF,min_w)
+                max_w = max(t_freq * idf_value / self.maxIDF,max_w)
+            else:
+                min_w=0
         return (min_w,max_w)
 
     def getSimilarityAND(self, query, doc_num):
@@ -73,7 +65,7 @@ class Query_MMM(Querying):
         '''
         ans=self.get_min_max_values(query,doc_num)
         min_w=ans[0]
-        max_w=ans[0]
+        max_w=ans[1]
         return self.C_and1*min_w+self.C_and2*max_w
 
     def getSimilarityOR(self, query, doc_num):
@@ -84,9 +76,8 @@ class Query_MMM(Querying):
         '''
         ans = self.get_min_max_values(query, doc_num)
         min_w = ans[0]
-        max_w = ans[0]
+        max_w = ans[1]
         return self.C_or1 * max_w + self.C_or2 * min_w
-
 
     def processQuery(self):
         '''
