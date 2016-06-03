@@ -1,5 +1,7 @@
+from timeit import default_timer as timer
 from Tkinter import *
 import tkFileDialog
+from Index_individual import Indexing
 class File_Loader:
     def __init__(self,parent,width="576",height="475"):
         self.parent=parent
@@ -59,12 +61,35 @@ class File_Loader:
         else:
             self.stopwords_path = text_stpwrd_box[0:len(text_stpwrd_box) - 1]
 
+    def canProceedIndexing(self): #can provide checks in this method to avoid program from crashing
+        return self.stopwords_path != '' and self.dir_path!=''
+
     def startIndexing(self):
-        pass
+        if self.canProceedIndexing():
+            start=timer()
+            indexer = Indexing(self.stopwords_path)
+            indexer.createIndex(self.dir_path)
+            end=timer()
+            print end-start
+        else:
+            #change error text here
+            self.message_label.config(text='Enter Directory and Stopword File Paths!!',fg="red")
 
     def startSearching(self):
-        pass
+        if self.canProceedIndexing():
+            pass
+        else:
+            # change error text here
+            self.message_label.config(text='Enter Directory and Stopword File Paths!!',fg='red')
 
 root=Tk()
 root.iconify()
 FL=File_Loader(root)
+'''
+https://docs.python.org/2/library/tkinter.html
+http://www.tutorialspoint.com/python/python_gui_programming.htm
+http://tkinter.unpythonic.net/wiki/tkFileDialog
+http://www.i-programmer.info/programming/python/5073-creating-the-python-ui-with-tkinter.html
+http://effbot.org/zone/tkinter-geometry.htm
+http://effbot.org/tkinterbook/label.htm
+'''
