@@ -1,5 +1,6 @@
 from timeit import default_timer as timer
 from Tkinter import *
+from ttk import *
 import tkFileDialog
 from Index_individual import Indexing
 class File_Loader:
@@ -25,6 +26,7 @@ class File_Loader:
         self.dir_path=''
         self.stopwords_path=''
         self.pack()
+        self.indexed=False
         self.window.mainloop()
 
     def pack(self):
@@ -43,13 +45,15 @@ class File_Loader:
     def selectDirectory(self):
         text_dir_box=self.text_field_dir.get("1.0",END)
         if text_dir_box== "\n":
-            self.dir_path=tkFileDialog.askdirectory(initialdir='C:\\',mustexist=False,parent=self.window,title='Select Direcotry')
+            self.dir_path=tkFileDialog.askdirectory(initialdir='C:\\',mustexist=False,parent=self.window,title='Select Directory')
+            self.text_field_dir.insert(END,self.dir_path)
+            self.text_field_dir.config(state=DISABLED)
         else:
             self.dir_path=text_dir_box[0:len(text_dir_box)-1]
 
 
     def selectStopwordFile(self):
-        text_stpwrd_box = self.text_field_dir.get("1.0", END)
+        text_stpwrd_box = self.text_field_stpwrd.get("1.0", END)
         if text_stpwrd_box == "\n":
             file_opt = options = {}
             options['defaultextension'] = '.txt'
@@ -58,38 +62,46 @@ class File_Loader:
             options['parent'] = self.window
             options['title'] = 'Select stopwords file'
             self.stopwords_path = tkFileDialog.askopenfilename(**file_opt)
+            self.text_field_stpwrd.insert(END,self.stopwords_path)
+            self.text_field_stpwrd.config(state=DISABLED)
         else:
             self.stopwords_path = text_stpwrd_box[0:len(text_stpwrd_box) - 1]
 
     def canProceedIndexing(self): #can provide checks in this method to avoid program from crashing
+
         return self.stopwords_path != '' and self.dir_path!=''
 
     def startIndexing(self):
+
         if self.canProceedIndexing():
-            start=timer()
-            indexer = Indexing(self.stopwords_path)
+            self.message_label.config(text='Indexing in progress')
+            self.message_label['foreground'] = 'green'
+            self.message_label.pack()
+            stemmer_ = self.list_stemmers.curselection()
+            indexer = Indexing(self.stopwords_path,self.list_stemmers.get(stemmer_[0]) if len(stemmer_)>0 else (0,))
+            start = timer()
             indexer.createIndex(self.dir_path)
+            self.indexed=True
             end=timer()
             print end-start
+            #self.message_label.config(text='Indexing Finished')
+            #self.message_label['foreground'] = 'green'
+
         else:
             #change error text here
-            self.message_label.config(text='Enter Directory and Stopword File Paths!!',fg="red")
+            self.message_label.config(text='Enter Directory and Stopword File Paths!!')
+            self.message_label["foreground"]= "red"
 
+    def canProceedSearching(self):
+        #natch filename from database with directory path here
+        return self.indexed
     def startSearching(self):
-        if self.canProceedIndexing():
-            pass
+        if self.canProceedSearching():
+            #self.window.withdraw()
+            self.window.quit()
+            self.window.destroy()
         else:
-            # change error text here
-            self.message_label.config(text='Enter Directory and Stopword File Paths!!',fg='red')
+            self.message_label.config(text='Files have not been indexed yet!!')
+            self.message_label['foreground']='red'
 
-root=Tk()
-root.iconify()
-FL=File_Loader(root)
-'''
-https://docs.python.org/2/library/tkinter.html
-http://www.tutorialspoint.com/python/python_gui_programming.htm
-http://tkinter.unpythonic.net/wiki/tkFileDialog
-http://www.i-programmer.info/programming/python/5073-creating-the-python-ui-with-tkinter.html
-http://effbot.org/zone/tkinter-geometry.htm
-http://effbot.org/tkinterbook/label.htm
-'''
+
