@@ -3,12 +3,14 @@ import MySQLdb
 from collections import defaultdict
 import math
 import porter2
+import lovins
+import paicehusk
 import os
 class Querying:
     '''
     to Query based on Cosine Similarity statistic
     '''
-    def __init__(self, path_to_folder=os.getcwd(), n=0, usID='shikhar', pswd='password', dbase='indexing_project', hst='localhost'):
+    def __init__(self, query='',path_to_folder=os.getcwd(),stemming_algo='porter', n=0, usID='shikhar', pswd='password', dbase='indexing_project', hst='localhost'):
         '''
         :param path_to_folder: folder containing indexed docs
         :param n: number of indexed docs
@@ -17,8 +19,9 @@ class Querying:
         :param dbase: Name of the datbase
         :param hst: database hosted at @host
         '''
+        self.stemming_algo=stemming_algo
         self.path=path_to_folder
-        self.query = ''
+        self.query = query
         self.userID = usID
         self.password = pswd
         self.database = dbase
@@ -45,9 +48,8 @@ class Querying:
         :return: returns the weight of given word in doc
         '''
         cursor = self.db.cursor()
-        cursor.execute("SELECT IDF_VALUE FROM IDF WHERE WORD='%s'" % word)
+        cursor.execute(("SELECT IDF_VALUE FROM IDF WHERE WORD='%s'" % word))
         temp=cursor.fetchone()
-       # print temp
         if cursor.rowcount>0:
             idf = temp[0]
         else:
@@ -64,7 +66,32 @@ class Querying:
         '''
         :return: to initialise N-> number of documents in folder
         '''
-        self.N=len([name for name in os.listdir(self.path) if os.path.isfile(os.path.join(self.path, name))])
+        cursor=self.db.cursor()
+        cursor.execute('SELECT MAX(FILE_ID) FROM FILES')
+       # self.N=len([name for name in os.listdir(self.path) if os.path.isfile(os.path.join(self.path, name))])
+        self.N=cursor.fetchone()[0]
+
+    def generate_result(self,ranks):
+        result=[]
+        cursor = self.db.cursor()
+        for cur_rank in ranks:
+            query='SELECT * FROM FILES WHERE FILE_ID=%d' % cur_rank[0]
+            #print cur_rank
+            cursor.execute(query)
+            row=cursor.fetchone()
+            result.append(row[1])
+        return result
+
+    def stem(self, word):
+        try:
+            if self.stemming_algo == 'porter':
+                return porter2.stem(word)
+            elif self.stemming_algo == 'lovins':
+                return lovins.stem(word)
+            else:
+                return paicehusk.stem(word)
+        except Exception, e:
+            pass
 
     def processQuery(self):
         '''
@@ -76,7 +103,7 @@ class Querying:
         score={}
         score=defaultdict(lambda: 0, score)
         for word in query:
-            word=porter2.stem(word)
+            word=self.stem(word)
             for i in xrange(1,self.N+1):
                 w=self.getWeight(word,i)
                 if w>0:
@@ -88,8 +115,9 @@ class Querying:
                 length += (item[0]*item[0])
             length=math.sqrt(length)
             score[doc]=score[doc]/length
+
         result=[]
         for doc,value in sorted(score.iteritems(),key= lambda (k,v): (v,k)):
             result.append((doc,value))
-        for i in xrange(len(result)-1,-1,-1):
-            print result[i]
+        result.reverse()
+        return self.generate_result(result)
