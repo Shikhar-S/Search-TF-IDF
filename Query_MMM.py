@@ -8,13 +8,13 @@ class Query_MMM(Querying):
     '''
     Implements Maxed min and max formula for ranking documents based on search query
     '''
-    def __init__(self,pathtofolder,cor1=0.6,cand1=0.6):
+    def __init__(self,pathtofolder,query,stemming_algo='porter',cor1=0.6,cand1=0.6):
         '''
         :param pathtofolder:Folder containing Files to be indexed (to be passed to base class)
         :param cor1: OR coefficient for MMM formula
         :param cand1: AMD cefficient for MMM formula
         '''
-        Querying.__init__(self, pathtofolder)
+        Querying.__init__(self, query,pathtofolder,stemming_algo)
         self.C_or1=cor1
         self.C_or2=1-self.C_or1
         self.C_and1=cand1
@@ -57,6 +57,7 @@ class Query_MMM(Querying):
                 min_w=0
         return (min_w,max_w)
 
+
     def getSimilarityAND(self, query, doc_num):
         '''
         :param query: query given by user
@@ -79,27 +80,44 @@ class Query_MMM(Querying):
         max_w = ans[1]
         return self.C_or1 * max_w + self.C_or2 * min_w
 
-    def processQuery(self):
+    def processQuery_OR(self,query):
         '''
         :return: to process the input query based on MMM
         '''
-        self.getN()
-        self.getMaxIDF()
-        query=[porter2.stem(word) for word in self.query.lower().split(' ')]
         score = {}
         score = defaultdict(lambda: 0, score)
         for i in xrange(1,self.N+1):
             t = self.getSimilarityOR(query, i)
             if t != 0:
                 score[i] = t
-        print "\n OR SEARCH \n"
-        self.display(score)
-        print "\n AND SEARCH\n"
+        result_OR=[]
+        for doc, value in sorted(score.iteritems(), key=lambda (k, v): (-v, k)):
+            result_OR.append((doc, value))
+        return self.generate_result(result_OR)
+        #print "\n OR SEARCH \n"
+        #self.display(score)
+        #print "\n AND SEARCH\n"
+
+    def processQuery_AND(self,query):
+        score = {}
+        score = defaultdict(lambda: 0, score)
         for i in xrange(1, self.N + 1):
             t = self.getSimilarityAND(query, i)
             if t != 0:
                 score[i] = t
-        self.display(score)
+        result_AND = []
+        for doc, value in sorted(score.iteritems(), key=lambda (k, v): (-v, k)):
+            result_AND.append((doc, value))
+        return self.generate_result(result_AND)
+
+    def processQuery(self,type='OR'):
+        self.getN()
+        self.getMaxIDF()
+        query = [self.stem(word) for word in self.query.lower().split(' ')]
+        if type=='OR':
+            return self.processQuery_OR(query)
+        else:
+            return self.processQuery_AND(query)
 
     def display(self,score):
         '''
