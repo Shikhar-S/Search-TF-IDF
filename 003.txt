@@ -1,5 +1,0 @@
-Microsoft seeking spyware trojan
-
-Microsoft is investigating a trojan program that attempts to switch off the firm's anti-spyware software.
-
-The spyware tool was only released by Microsoft in the last few weeks and has been downloaded by six million people. Stephen Toulouse, a security manager at Microsoft, said the malicious program was called Bankash-A Trojan and was being sent as an e-mail attachment. 
