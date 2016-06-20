@@ -21,6 +21,7 @@ class File_Loader:
         self.list_stemmers.insert(2,"Lovins")
         self.list_stemmers.insert(3,"Paice-Husk")
         self.button_index=Button(self.window,text="Index",command=self.startIndexing)
+        self.button_index.bind('<Button-1>',self.updateLabel)
         self.button_search=Button(self.window,text="Search",command=self.startSearching)
         self.message_label=Label(self.window,text="Select Directory to search,Stopwords file,Stemming algo")
         self.dir_path=''
@@ -68,24 +69,35 @@ class File_Loader:
             self.stopwords_path = text_stpwrd_box[0:len(text_stpwrd_box) - 1]
 
     def canProceedIndexing(self): #can provide checks in this method to avoid program from crashing
+            return self.stopwords_path != '' and self.dir_path!=''
 
-        return self.stopwords_path != '' and self.dir_path!=''
+    def updateLabel(self,event):
+        self.message_label.config(text='Indexing in progress')
+        self.message_label['foreground'] = 'green'
 
     def startIndexing(self):
-
         if self.canProceedIndexing():
-            self.message_label.config(text='Indexing in progress')
-            self.message_label['foreground'] = 'green'
-            self.message_label.pack()
             stemmer_ = self.list_stemmers.curselection()
-            indexer = Indexing(self.stopwords_path,self.list_stemmers.get(stemmer_[0]) if len(stemmer_)>0 else (0,))
+            if len(stemmer_)>0:
+                sc=self.list_stemmers.get(stemmer_[0])
+                if sc=='Porter Stemmer':
+                    stemmer_choice='porter'
+                elif sc=='Lovins':
+                    stemmer_choice='lovins'
+                else:
+                    stemmer_choice='paicehusk'
+            else:
+                stemmer_choice='porter'
+
+            #indexer = Indexing(self.stopwords_path,self.list_stemmers.get(stemmer_[0]) if len(stemmer_)>0 else (0,))
+            indexer = Indexing(self.stopwords_path,stemmer_choice)
             start = timer()
             indexer.createIndex(self.dir_path)
             self.indexed=True
             end=timer()
             print end-start
-            #self.message_label.config(text='Indexing Finished')
-            #self.message_label['foreground'] = 'green'
+            self.message_label.config(text='Indexing Finished')
+            self.message_label['foreground'] = 'green'
 
         else:
             #change error text here
@@ -94,7 +106,7 @@ class File_Loader:
 
     def canProceedSearching(self):
         #natch filename from database with directory path here
-        return self.indexed
+        return True
     def startSearching(self):
         if self.canProceedSearching():
             #self.window.withdraw()
