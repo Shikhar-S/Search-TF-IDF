@@ -1,5 +1,0 @@
-Microsoft releases bumper patches
-
-Microsoft has warned PC users to update their systems with the latest security fixes for flaws in Windows programs.
-
-In its monthly security bulletin, it flagged up eight "critical" security holes which could leave PCs open to attack if left unpatched. The number of holes considered "critical" is more than usual. They affect Windows programs, including Internet Explorer (IE), media player and instant messaging. Four other important fixes were also released. These were considered to be less critical, however.
