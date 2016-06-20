@@ -1,13 +1,16 @@
 __author__ = 'Shikhar'
-import os
-import MySQLdb
-import re
 import math
+import os
+import re
 import warnings
-import porter2
 from collections import defaultdict
 
-#stemmer = PorterStemmer()
+import MySQLdb
+
+import porter2
+import lovins
+import paicehusk
+# stemmer = PorterStemmer()
 warnings.filterwarnings('ignore', 'Unknown table')
 
 
@@ -15,7 +18,8 @@ class Indexing:
     '''
     Indexes docs
     '''
-    def __init__(self, stpwrdfile, usID='shikhar', pswd='password', dbase='indexing_project', hst='localhost'):
+
+    def __init__(self, stpwrdfile, stemming_algo = 'porter',usID='shikhar', pswd='password', dbase='indexing_project', hst='localhost'):
         '''
         :param stpwrdfile: File path containing stopwords to be filtered
         :param usID: User ID for database connection
@@ -31,6 +35,7 @@ class Indexing:
         self.N = 0
         self.stopWordSet = set()
         self.query_insert = ''
+        self.stemming_algo=stemming_algo
         try:
             self.db = MySQLdb.connect(self.host, self.userID, self.password, self.database)
         except:
@@ -74,7 +79,7 @@ class Indexing:
         :param doc_num: doc for which TF table has to be made.
         :return: Creates TF table on disk for given doc to store word and TFF_VALUE. Mame of table is DOCi for i=doc_num
         '''
-        maxlenWord = 20 #maximum possible length of word
+        maxlenWord = 20  # maximum possible length of word
         try:
             cursor = self.db.cursor()
             cursor.execute('DROP TABLE IF EXISTS DOC' + str(doc_num))
@@ -102,13 +107,13 @@ class Indexing:
             print 'Indexing IDF value for file %d' % i
             insertion_cursor = self.db.cursor()
             traversal_cursor = self.db.cursor()
-            temp_cursor=self.db.cursor()
+            temp_cursor = self.db.cursor()
             traversal_cursor.execute("SELECT WORD FROM DOC%d" % i)
 
             for current_word in traversal_cursor:
                 c = 0
                 temp_cursor.execute(("SELECT * FROM IDF WHERE WORD='%s'" % current_word))
-                if temp_cursor.rowcount==0:
+                if temp_cursor.rowcount == 0:
                     for j in xrange(1, self.N + 1):
                         inner_query = "SELECT * FROM DOC%d WHERE WORD='%s'" % (j, current_word[0])
                         temp_cursor.execute(inner_query)
@@ -116,13 +121,13 @@ class Indexing:
                             c += 1
                     c = math.log(self.N / float(c))
                     if c != 0:
-                        insertion_cursor.execute("INSERT INTO IDF(WORD,IDF_VALUE) VALUES('%s',%f)" % (current_word[0], c))
+                        insertion_cursor.execute(
+                            "INSERT INTO IDF(WORD,IDF_VALUE) VALUES('%s',%f)" % (current_word[0], c))
         try:
             self.db.commit()
         except Exception, e:
             self.db.rollback()
             print e
-
 
     def TF_insert(self, fid, word, count_total, word_freq):
         '''
@@ -154,7 +159,7 @@ class Indexing:
         :return: processes each word by calc its freq and calling TF_insert function
         '''
         print 'Indexing file %d' % fid
-        with open(FilePath,'r') as F:
+        with open(FilePath, 'r') as F:
             hashtable_words = {}
             hashtable_words = defaultdict(lambda: 0, hashtable_words)
             for word in listOfWords:
@@ -169,7 +174,19 @@ class Indexing:
         :param wordlist: list of words in doc
         :return: filters stopwords
         '''
+        self.stopWordSet.add('')
         return [x for x in wordlist if x not in self.stopWordSet]
+
+    def stem(self, word):
+        try:
+            if self.stemming_algo == 'porter':
+                return porter2.stem(word)
+            elif self.stemming_algo == 'lovins':
+                return lovins.stem(word)
+            else:
+                return paicehusk.stem(word)
+        except Exception, e:
+            pass
 
     def fetchStemmedWords(self, path):
         '''
@@ -181,8 +198,9 @@ class Indexing:
             text = re.sub(r'[^a-z0-9 ]', ' ', text)
             listOfWords = text.split(' ')
             listOfWords = self.removeStopWords(listOfWords)
-            #listOfWords = [stemmer.stem(word, 0, len(word) - 1) for word in listOfWords]
-            listOfWords=[porter2.stem(word) for word in listOfWords]
+           # print listOfWords
+            # listOfWords = [stemmer.stem(word, 0, len(word) - 1) for word in listOfWords]
+            listOfWords = [self.stem(word) for word in listOfWords]
         return listOfWords
 
     def parseFile(self, path_to_file, fid):
@@ -192,10 +210,10 @@ class Indexing:
         :return: processes the file by calling addToDatabase and insertFile functions
         '''
         listOfWords = self.fetchStemmedWords(path_to_file)
-        self.insertFile(fid,path_to_file,len(listOfWords))
+        self.insertFile(fid, path_to_file, len(listOfWords))
         self.addToDatabase(path_to_file, listOfWords, fid)
 
-    def insertFile(self, id, f,count):
+    def insertFile(self, id, f, count):
         '''
         :param id: id of doc
         :param f: path of doc
@@ -204,7 +222,6 @@ class Indexing:
         '''
         cur = self.db.cursor()
         cur.execute(("INSERT INTO FILES(FILE_ID,LINK,LENGTH) VALUES(%d,'%s',%d)" % (id, f, count)))
-
 
     def createIndex(self, pathtofolder):
         '''
@@ -216,10 +233,10 @@ class Indexing:
         ID = 0
         for f in os.listdir(pathtofolder):
             if os.path.isfile(os.path.join(pathtofolder, f)):
-                f = os.path.join(pathtofolder, f)
+               # f = os.path.join(pathtofolder, f)
+                f=pathtofolder+'/'+f
                 filesinside.append(f)
                 ID += 1
-
 
         self.N = ID
         self.setUpIDF()
