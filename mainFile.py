@@ -21,15 +21,17 @@ queryProcessor.getQuery()
 start=timer()
 result=queryProcessor.processQuery()
 end=timer()
-#for i in result:
- #   print i
+for i in result:
+    print i
 print 'Time taken to search %f' % (end-start)
 ####################################
 queryProcessor_MMM=Query_MMM(path)
 queryProcessor_MMM.getQuery()
 start=timer()
-queryProcessor_MMM.processQuery()
+result=queryProcessor_MMM.processQuery()
 end=timer()
+for i in result:
+    print i
 print 'Time taken by MMM algo %f' % (end-start)
 '''
 
